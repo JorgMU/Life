@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "createdAt": "2026-05-01",
+  "lastUpdated": "2026-05-01",
+  "purpose": "Web page with JavaScript-driven Conway's Game of Life on a resizable window.",
+  "repository": {
+    "visibilityIntent": "public",
+    "visibilitySource": "user-declared-during-setup"
+  },
+  "project": {
+    "preferences": "Keep everything for a given page embedded in that page. All code (HTML, CSS, JS) for the game goes in TheGameOfLife.html. Multiple pages may exist later, but each page is self-contained.",
+    "constraints": "Do not commit, delete, or access content outside the workspace without explicit approval.",
+    "sourceOfTruthFiles": []
+  },
+  "currentPosition": {
+    "status": "Initialized",
+    "focus": "TheGameOfLife.html — initial game implementation",
+    "nextStep": "Build out the Game of Life page"
+  },
+  "currentSession": {
+    "startupComplete": false,
+    "startedAt": null
+  },
+  "lastActions": [
+    "Initialized repository agent files from NewRepoAgentSetup.md"
+  ],
+  "decisions": [
+    {
+      "date": "2026-05-01",
+      "decision": "All code for a given page is embedded in that page (no external JS/CSS files)."
+    },
+    {
+      "date": "2026-05-01",
+      "decision": "Primary game page is TheGameOfLife.html."
+    }
+  ],
+  "openQuestions": [],
+  "nextActions": [],
+  "conflictCheckProtocol": {
+    "compareAgainst": [
+      "active instructions",
+      "active skills",
+      "repository conventions discovered in files",
+      "existing project configuration"
+    ],
+    "reportFormat": [
+      "Conflict item",
+      "Why it conflicts",
+      "Proposed resolution"
+    ],
+    "blockingRule": "If conflicts exist, wait for user approval before proceeding."
+  },
+  "reminderBehavior": {
+    "format": "Reminder: <task>. (I did not perform this task.)",
+    "neverExecuteReminderItems": true
+  }
+}
