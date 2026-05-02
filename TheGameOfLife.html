@@ -246,7 +246,7 @@
       <option value="blinker">Blinker</option>
       <option value="toad">Toad</option>
       <option value="beacon">Beacon</option>
-      <option value="clock">Clock (P2)</option>
+      <option value="clock">Clock (Stable)</option>
       <option value="pentadecathlon">Pentadecathlon (P15)</option>
       <option value="pulsar">Pulsar</option>
       <option value="gosper">Gosper Glider Gun</option>
@@ -287,6 +287,11 @@
       <label for="wrap-toggle">Wrap edges</label>
     </div>
 
+    <div class="check-group">
+      <input type="checkbox" id="detect-loops" checked />
+      <label for="detect-loops">Detect loops</label>
+    </div>
+
     <a id="popout-link" href="#" title="Pop-out">Pop Out</a>
 
     <div id="status-box" aria-live="polite"></div>
@@ -322,6 +327,7 @@
     const sldCell    = document.getElementById('cell-size');
     const valCell    = document.getElementById('cell-size-val');
     const chkWrap    = document.getElementById('wrap-toggle');
+    const chkDetect  = document.getElementById('detect-loops');
     const canvasArea = document.getElementById('canvas-area');
 
     // ── State ──────────────────────────────────────────────────────
@@ -335,6 +341,7 @@
     let cellSize   = parseInt(sldCell.value, 10);
     let fps        = parseInt(sldSpeed.value, 10);
     let wrapEdges  = chkWrap.checked;
+    let detectLoops = chkDetect.checked;
     let customMode    = false;
     let customPainting = false;
     let customPaintVal = 0;
@@ -553,6 +560,7 @@
         cellSize,
         fps,
         wrapEdges,
+        detectLoops,
         pattern: selPattern.value,
         customMode,
         running,
@@ -620,6 +628,8 @@
         cellSize = Number(s.cellSize) || cellSize;
         fps = Number(s.fps) || fps;
         wrapEdges = !!s.wrapEdges;
+        if (typeof s.detectLoops === 'boolean') detectLoops = s.detectLoops;
+        else if (typeof s.ignoreLoops === 'boolean') detectLoops = !s.ignoreLoops;
         customMode = !!s.customMode;
 
         sldCell.value = String(cellSize);
@@ -627,6 +637,7 @@
         sldSpeed.value = String(fps);
         valSpeed.textContent = `${fps} fps`;
         chkWrap.checked = wrapEdges;
+        chkDetect.checked = detectLoops;
         selPattern.value = s.pattern || selPattern.value;
         canvas.classList.toggle('custom-mode', customMode);
 
@@ -681,6 +692,10 @@
       elStatus.textContent = text;
     }
 
+    function selectedPatternLabel() {
+      return selPattern.options[selPattern.selectedIndex]?.text || 'Pattern';
+    }
+
     // ── Grid hashing (fast 32-bit FNV-1a over all cells) ──────────
     function hashGrid(g) {
       let h = 0x811c9dc5;
@@ -726,14 +741,14 @@
         const h = hashGrid(grid);
         const period = findLoopPeriod(h);
 
-        if (period === 1) {
+        if (detectLoops && period === 1) {
           console.log(`[Life] Steady state at gen ${generation}. Auto-pausing.`);
           setStatus('Loop detected, paused. (steady state)');
           pause();
           return;
         }
 
-        if (period > 1) {
+        if (detectLoops && period > 1) {
           console.log(`[Life] Period-${period} loop at gen ${generation}. Auto-pausing.`);
           setStatus(`Loop detected, paused. (period-${period})`);
           pause();
@@ -801,24 +816,38 @@
     }
 
     // ── Event listeners ───────────────────────────────────────────
-    btnPlay.addEventListener('click', play);
-    btnPause.addEventListener('click', pause);
+    btnPlay.addEventListener('click', () => {
+      setStatus('');
+      play();
+    });
+
+    btnPause.addEventListener('click', () => {
+      setStatus('');
+      pause();
+    });
 
     btnStep.addEventListener('click', () => {
       pause();
       step();
       draw();
       updateStats();
+      setStatus('Stepped forward.');
     });
 
     btnReset.addEventListener('click', () => {
       pause();
       applyPattern();
       draw();
+      if (selPattern.value === 'custom') {
+        setStatus('Cleared custom board.');
+      } else {
+        setStatus(`Cleared ${selectedPatternLabel()} board.`);
+      }
     });
 
     btnEdit.addEventListener('click', () => {
       enterEditMode();
+      setStatus('Editing custom pattern.');
     });
 
     lnkPopout.addEventListener('click', e => {
@@ -833,6 +862,7 @@
       canvas.classList.toggle('custom-mode', customMode);
       applyPattern();
       draw();
+      setStatus(`Pattern selected: ${selectedPatternLabel()}`);
     });
 
     sldSpeed.addEventListener('input', () => {
@@ -848,6 +878,7 @@
     });
 
     chkWrap.addEventListener('change', () => { wrapEdges = chkWrap.checked; });
+    chkDetect.addEventListener('change', () => { detectLoops = chkDetect.checked; });
 
     // ── Custom draw mode ──────────────────────────────────────────
     function canvasCoords(e) {
