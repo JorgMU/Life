@@ -1,0 +1,1 @@
+{"rule":"POSSESSIVE_APOSTROPHE","sentence":"^\\QMost of my chat history is available in the conversations folder.\\E$"}

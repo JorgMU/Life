@@ -29,4 +29,4 @@ Open `TheGameOfLife.html` directly in any modern web browser. No build step or s
 
 This repository serves as a record of building something from scratch using GitHub Copilot as a coding assistant. Each session is logged in the `Conversations/` folder, capturing what was requested, what changed, and key decisions made along the way.
 
-Note: I did not make any direct edits besides the HTML comment that holds my intentions, and this note. -Jorg
+Note: I did not make any direct edits besides the HTML comment that holds my intentions, and this note. Most of my chat history is available in the conversations folder. -Jorg
