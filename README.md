@@ -30,3 +30,19 @@ Open `TheGameOfLife.html` directly in any modern web browser. No build step or s
 This repository serves as a record of building something from scratch using GitHub Copilot as a coding assistant. Each session is logged in the `Conversations/` folder, capturing what was requested, what changed, and key decisions made along the way.
 
 Note: I did not make any direct edits besides the HTML comment that holds my intentions, and this note. Most of my chat history is available in the conversations folder. -Jorg
+
+## Things to do
+
+Generalize pattern definition to be stored as a list of hashes
+
+*Pseudocode, covert to jscirpt.*
+
+{
+  Name: "Glider"; 
+  WrapEdges: false
+  Message: "Best with a 200x200 grid."
+  Origin: (-1,-1) //off set of this patterns orgin (top-left) from the grid center
+  Pixels: [[1,0],[2,1],[0,2],[1,2],[2,2]]; // the well known glider as a list of enabled grid points. 
+}
+
+Note. The build in *random* would be a special case to be defined later
