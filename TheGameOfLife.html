@@ -164,16 +164,16 @@
     .check-group input[type="checkbox"] { accent-color: #39ff14; }
     .check-group label { color: #c8f0c8; text-transform: none; letter-spacing: 0; }
 
-    #popout-link {
-      color: #8fb8ff;
-      text-decoration: underline;
-      cursor: pointer;
-      font-size: 12px;
-      align-self: center;
-      margin-top: 6px;
+    #window-mode {
+      width: 100%;
+      background: #1e2e1e;
+      color: #c8f0c8;
+      border: 1px solid #2a3a2a;
+      border-radius: 4px;
+      padding: 4px 6px;
     }
 
-    #popout-link:hover { color: #b7d0ff; }
+    #window-mode:focus { outline: 1px solid #39ff14; }
 
     /* ── Status box ── */
     #status-box {
@@ -242,6 +242,7 @@
     <select id="pattern">
       <option value="random">Random</option>
       <option value="custom">Custom</option>
+      <option value="simple-complexity">Simple Complexity</option>
       <option value="glider">Glider</option>
       <option value="blinker">Blinker</option>
       <option value="toad">Toad</option>
@@ -292,7 +293,23 @@
       <label for="detect-loops">Detect loops</label>
     </div>
 
-    <a id="popout-link" href="#" title="Pop-out">Pop Out</a>
+    <div class="check-group">
+      <input type="checkbox" id="url-sync" />
+      <label for="url-sync">Save grid in URL</label>
+    </div>
+
+    <div class="slider-group">
+      <label for="window-mode">Window</label>
+      <select id="window-mode" title="Window mode and frameless size presets">
+        <option value="regular">Regular Window</option>
+        <option value="small-square">Small Square</option>
+        <option value="small-wide">Small Wide</option>
+        <option value="medium-square">Medium Square</option>
+        <option value="medium-wide">Medium Wide</option>
+        <option value="large-square">Large Square</option>
+        <option value="large-wide">Large Wide</option>
+      </select>
+    </div>
 
     <div id="status-box" aria-live="polite"></div>
   </nav>
@@ -305,7 +322,19 @@
     // ── Constants ──────────────────────────────────────────────────
     const MAX_AGE = 40;
     const LOOP_TRACK_FRAMES = 36;
+    const POPUP_SIDEBAR_WIDTH = 200;
+    const POPUP_HEIGHT_CHROME = 70;
+    const POPUP_WIDTH_CHROME = 24;
+    const WINDOW_PRESETS = {
+      'small-square': { cols: 40, rows: 40, cellSize: 10, label: 'Small Square' },
+      'small-wide': { cols: 60, rows: 40, cellSize: 10, label: 'Small Wide' },
+      'medium-square': { cols: 70, rows: 70, cellSize: 10, label: 'Medium Square' },
+      'medium-wide': { cols: 90, rows: 60, cellSize: 10, label: 'Medium Wide' },
+      'large-square': { cols: 100, rows: 100, cellSize: 8, label: 'Large Square' },
+      'large-wide': { cols: 100, rows: 75, cellSize: 8, label: 'Large Wide' }
+    };
     const POPUP_STATE_KEY = 'life-popout-state';
+    const URL_STATE_PARAM = 'state';
     const IN_POPUP_MODE = new URLSearchParams(window.location.search).get('popup') === '1';
 
     // ── DOM refs ───────────────────────────────────────────────────
@@ -317,7 +346,7 @@
     const btnStep    = document.getElementById('btn-step');
     const btnReset   = document.getElementById('btn-reset');
     const btnEdit    = document.getElementById('btn-edit');
-    const lnkPopout  = document.getElementById('popout-link');
+    const selWindow  = document.getElementById('window-mode');
     const elGen      = document.getElementById('gen-count');
     const elPop      = document.getElementById('pop-count');
     const elGridSize = document.getElementById('grid-size');
@@ -328,6 +357,7 @@
     const valCell    = document.getElementById('cell-size-val');
     const chkWrap    = document.getElementById('wrap-toggle');
     const chkDetect  = document.getElementById('detect-loops');
+    const chkUrlSync = document.getElementById('url-sync');
     const canvasArea = document.getElementById('canvas-area');
 
     // ── State ──────────────────────────────────────────────────────
@@ -350,6 +380,8 @@
     let loopHashWrite  = 0;
     let rowBiasFlip    = false;
     let colBiasFlip    = false;
+    let urlSyncEnabled = false;
+    let urlSyncTimer   = null;
 
     // ── Color table (pre-computed) ─────────────────────────────────
     // Age 1 (new) → bright green; Age MAX_AGE (old) → dim green
@@ -437,6 +469,14 @@
         for (let r = 0; r < rows; r++)
           for (let c = 0; c < cols; c++)
             grid[r][c] = Math.random() < 0.3 ? 1 : 0;
+      },
+      'simple-complexity'() {
+        const oc = Math.floor(cols / 2) - 5;
+        const or = Math.floor(rows / 2) - 1;
+
+        // Matches canonical shared state: a tub above a glider seed.
+        [[4,-5],[3,-4],[5,-4],[4,-3]].forEach(([dc,dr]) => setCell(grid, oc + dc, or + dr, 1));
+        [[0,0],[1,0],[2,0],[2,1],[1,2]].forEach(([dc,dr]) => setCell(grid, oc + dc, or + dr, 1));
       },
       glider() {
         const oc = Math.floor(cols / 2) - 1, or = Math.floor(rows / 2) - 1;
@@ -561,11 +601,206 @@
         fps,
         wrapEdges,
         detectLoops,
+        windowMode: selWindow.value,
         pattern: selPattern.value,
         customMode,
         running,
         grid: grid.map(row => Array.from(row))
       };
+    }
+
+    function encodeBase64Url(text) {
+      const bytes = new TextEncoder().encode(text);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function decodeBase64Url(text) {
+      const base64 = text.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const bin = atob(padded);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    }
+
+    function encodeGridRle(g) {
+      const total = rows * cols;
+      if (total <= 0) return '';
+
+      const tokens = [];
+      let runVal = g[0][0] | 0;
+      let runLen = 1;
+
+      for (let idx = 1; idx < total; idx++) {
+        const r = Math.floor(idx / cols);
+        const c = idx % cols;
+        const v = g[r][c] | 0;
+        if (v === runVal) {
+          runLen++;
+        } else {
+          tokens.push(`${runLen.toString(36)}.${runVal.toString(36)}`);
+          runVal = v;
+          runLen = 1;
+        }
+      }
+
+      tokens.push(`${runLen.toString(36)}.${runVal.toString(36)}`);
+      return tokens.join(',');
+    }
+
+    function decodeGridRle(encoded, srcCols, srcRows) {
+      const total = srcCols * srcRows;
+      const out = new Int16Array(total);
+      if (!encoded || total <= 0) return out;
+
+      const tokens = encoded.split(',');
+      let write = 0;
+      for (const token of tokens) {
+        if (!token) continue;
+        const parts = token.split('.');
+        if (parts.length !== 2) continue;
+        const len = parseInt(parts[0], 36);
+        const val = parseInt(parts[1], 36);
+        if (!Number.isFinite(len) || len <= 0 || !Number.isFinite(val)) continue;
+
+        const maxWrite = Math.min(total, write + len);
+        for (let i = write; i < maxWrite; i++) out[i] = val;
+        write = maxWrite;
+        if (write >= total) break;
+      }
+
+      return out;
+    }
+
+    function serializeStateForUrl() {
+      const payload = {
+        v: 1,
+        c: cols,
+        r: rows,
+        cs: cellSize,
+        f: fps,
+        w: wrapEdges ? 1 : 0,
+        d: detectLoops ? 1 : 0,
+        p: selPattern.value,
+        cm: customMode ? 1 : 0,
+        run: running ? 1 : 0,
+        g: generation,
+        wm: selWindow.value,
+        gh: encodeGridRle(grid)
+      };
+      return encodeBase64Url(JSON.stringify(payload));
+    }
+
+    function applyStatePayload(payload) {
+      if (!payload || !Number.isFinite(payload.c) || !Number.isFinite(payload.r)) return false;
+
+      cellSize = Number(payload.cs) || cellSize;
+      fps = Number(payload.f) || fps;
+      wrapEdges = !!payload.w;
+      detectLoops = !!payload.d;
+      customMode = !!payload.cm;
+
+      if (typeof payload.wm === 'string') selWindow.value = payload.wm;
+      if (typeof payload.p === 'string') selPattern.value = payload.p;
+
+      sldCell.value = String(cellSize);
+      valCell.textContent = `${cellSize} px`;
+      sldSpeed.value = String(fps);
+      valSpeed.textContent = `${fps} fps`;
+      chkWrap.checked = wrapEdges;
+      chkDetect.checked = detectLoops;
+      canvas.classList.toggle('custom-mode', customMode);
+
+      resize();
+
+      const srcCols = Number(payload.c) | 0;
+      const srcRows = Number(payload.r) | 0;
+      const srcFlat = decodeGridRle(payload.gh || '', srcCols, srcRows);
+      const restored = makeGrid();
+      const rowOffsetDst = Math.floor((rows - srcRows) / 2);
+      const colOffsetDst = Math.floor((cols - srcCols) / 2);
+
+      for (let r = 0; r < srcRows; r++) {
+        const rr = r + rowOffsetDst;
+        if (rr < 0 || rr >= rows) continue;
+        for (let c = 0; c < srcCols; c++) {
+          const cc = c + colOffsetDst;
+          if (cc < 0 || cc >= cols) continue;
+          const srcIdx = r * srcCols + c;
+          restored[rr][cc] = srcFlat[srcIdx] > 0 ? srcFlat[srcIdx] : 0;
+        }
+      }
+
+      grid = restored;
+      generation = Number.isFinite(payload.g) ? payload.g : generation;
+      recountPop();
+      draw();
+      updateStats();
+
+      if (payload.run) play();
+      else pause();
+
+      return true;
+    }
+
+    function tryRestoreFromUrlState() {
+      const params = new URLSearchParams(window.location.search);
+      const state = params.get(URL_STATE_PARAM);
+      if (!state) return false;
+
+      try {
+        const json = decodeBase64Url(state);
+        const payload = JSON.parse(json);
+        if (!applyStatePayload(payload)) return false;
+        chkUrlSync.checked = true;
+        urlSyncEnabled = true;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function syncStateToUrl() {
+      const url = new URL(window.location.href);
+      if (!urlSyncEnabled) {
+        url.searchParams.delete(URL_STATE_PARAM);
+        history.replaceState(null, '', url);
+        return;
+      }
+
+      const encoded = serializeStateForUrl();
+      url.searchParams.set(URL_STATE_PARAM, encoded);
+      history.replaceState(null, '', url);
+    }
+
+    function requestUrlSync() {
+      if (!urlSyncEnabled) return;
+      if (urlSyncTimer !== null) return;
+
+      urlSyncTimer = setTimeout(() => {
+        urlSyncTimer = null;
+        syncStateToUrl();
+      }, 160);
+    }
+
+    function getWindowPreset(value) {
+      return WINDOW_PRESETS[value] || null;
+    }
+
+    function popupDimensionsFromPreset(preset) {
+      const popupWidth = Math.max(640, preset.cols * preset.cellSize + POPUP_SIDEBAR_WIDTH + POPUP_WIDTH_CHROME);
+      const popupHeight = Math.max(520, preset.rows * preset.cellSize + POPUP_HEIGHT_CHROME);
+      return { popupWidth, popupHeight };
+    }
+
+    function applyPresetCellSize(preset) {
+      if (!preset || !Number.isFinite(preset.cellSize)) return;
+      if (cellSize === preset.cellSize) return;
+      cellSize = preset.cellSize;
+      sldCell.value = String(cellSize);
+      valCell.textContent = `${cellSize} px`;
     }
 
     function openWithState(targetUrl, features) {
@@ -579,11 +814,18 @@
       return true;
     }
 
-    function openPopout() {
+    function openPopout(preset) {
+      const config = getWindowPreset(preset);
+      if (!config) {
+        setStatus('Select a frameless preset size first.');
+        return;
+      }
+
+      const { popupWidth, popupHeight } = popupDimensionsFromPreset(config);
       const features = [
         'popup=yes',
-        'width=900',
-        'height=700',
+        `width=${popupWidth}`,
+        `height=${popupHeight}`,
         'left=80',
         'top=80',
         'resizable=yes',
@@ -594,11 +836,21 @@
         'scrollbars=no'
       ].join(',');
 
-      const popupUrl = `${window.location.pathname}?popup=1`;
+      const popupUrl = `${window.location.pathname}?popup=1&preset=${encodeURIComponent(preset)}`;
       if (!openWithState(popupUrl, features)) return;
       window.open('', '_self');
       window.close();
       setStatus('Pop-out opened. If this tab does not close, close it manually.');
+    }
+
+    function resizeCurrentPopup(preset) {
+      const config = getWindowPreset(preset);
+      if (!config) return;
+      applyPresetCellSize(config);
+      const { popupWidth, popupHeight } = popupDimensionsFromPreset(config);
+      window.resizeTo(popupWidth, popupHeight);
+      resize();
+      setStatus(`Resized to ${config.label} (${config.cols} x ${config.rows}).`);
     }
 
     function returnFromPopout() {
@@ -638,6 +890,9 @@
         valSpeed.textContent = `${fps} fps`;
         chkWrap.checked = wrapEdges;
         chkDetect.checked = detectLoops;
+        selWindow.value = s.windowMode || selWindow.value;
+        const preset = getWindowPreset(selWindow.value);
+        if (preset) applyPresetCellSize(preset);
         selPattern.value = s.pattern || selPattern.value;
         canvas.classList.toggle('custom-mode', customMode);
 
@@ -686,10 +941,25 @@
       elGen.textContent = generation;
       elPop.textContent = population;
       elGridSize.textContent = `${cols} x ${rows}`;
+      requestUrlSync();
     }
 
     function setStatus(text = '') {
       elStatus.textContent = text;
+    }
+
+    function applyCellSize(newSize) {
+      const minSize = parseInt(sldCell.min, 10);
+      const maxSize = parseInt(sldCell.max, 10);
+      const clamped = Math.max(minSize, Math.min(maxSize, newSize | 0));
+      if (clamped === cellSize) return false;
+
+      cellSize = clamped;
+      sldCell.value = String(cellSize);
+      valCell.textContent = `${cellSize} px`;
+      resize();
+      requestUrlSync();
+      return true;
     }
 
     function selectedPatternLabel() {
@@ -770,6 +1040,7 @@
       btnPlay.classList.add('active');
       btnPause.classList.remove('active');
       animId = requestAnimationFrame(loop);
+      requestUrlSync();
     }
 
     function pause() {
@@ -777,6 +1048,7 @@
       if (animId) { cancelAnimationFrame(animId); animId = null; }
       btnPause.classList.add('active');
       btnPlay.classList.remove('active');
+      requestUrlSync();
     }
 
     function enterEditMode() {
@@ -832,6 +1104,7 @@
       draw();
       updateStats();
       setStatus('Stepped forward.');
+      requestUrlSync();
     });
 
     btnReset.addEventListener('click', () => {
@@ -848,12 +1121,27 @@
     btnEdit.addEventListener('click', () => {
       enterEditMode();
       setStatus('Editing custom pattern.');
+      requestUrlSync();
     });
 
-    lnkPopout.addEventListener('click', e => {
-      e.preventDefault();
-      if (IN_POPUP_MODE) returnFromPopout();
-      else openPopout();
+    selWindow.addEventListener('change', () => {
+      const mode = selWindow.value;
+
+      if (mode === 'regular') {
+        if (IN_POPUP_MODE) returnFromPopout();
+        else setStatus('Using regular window.');
+        requestUrlSync();
+        return;
+      }
+
+      if (IN_POPUP_MODE) {
+        resizeCurrentPopup(mode);
+        requestUrlSync();
+        return;
+      }
+
+      openPopout(mode);
+      requestUrlSync();
     });
 
     selPattern.addEventListener('change', () => {
@@ -863,22 +1151,36 @@
       applyPattern();
       draw();
       setStatus(`Pattern selected: ${selectedPatternLabel()}`);
+      requestUrlSync();
     });
 
     sldSpeed.addEventListener('input', () => {
       fps = parseInt(sldSpeed.value, 10);
       valSpeed.textContent = `${fps} fps`;
+      requestUrlSync();
     });
 
     // Resize only recalculates the grid on mouseup to avoid thrashing
     sldCell.addEventListener('change', () => {
-      cellSize = parseInt(sldCell.value, 10);
-      valCell.textContent = `${cellSize} px`;
-      resize();
+      applyCellSize(parseInt(sldCell.value, 10));
     });
 
-    chkWrap.addEventListener('change', () => { wrapEdges = chkWrap.checked; });
-    chkDetect.addEventListener('change', () => { detectLoops = chkDetect.checked; });
+    chkWrap.addEventListener('change', () => {
+      wrapEdges = chkWrap.checked;
+      requestUrlSync();
+    });
+
+    chkDetect.addEventListener('change', () => {
+      detectLoops = chkDetect.checked;
+      requestUrlSync();
+    });
+
+    chkUrlSync.addEventListener('change', () => {
+      urlSyncEnabled = chkUrlSync.checked;
+      syncStateToUrl();
+      if (urlSyncEnabled) setStatus('URL now contains the current grid and settings.');
+      else setStatus('URL state removed.');
+    });
 
     // ── Custom draw mode ──────────────────────────────────────────
     function canvasCoords(e) {
@@ -912,13 +1214,34 @@
     canvas.addEventListener('pointerup',     () => { customPainting = false; });
     canvas.addEventListener('pointercancel', () => { customPainting = false; });
 
+    canvas.addEventListener('wheel', e => {
+      if (running) return;
+
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      if (delta === 0) return;
+
+      // Scroll up increases cell size, scroll down decreases it.
+      applyCellSize(cellSize - delta);
+    }, { passive: false });
+
     new ResizeObserver(resize).observe(canvasArea);
 
     // ── Init ──────────────────────────────────────────────────────
-    lnkPopout.textContent = IN_POPUP_MODE ? 'Return' : 'Pop Out';
-    lnkPopout.title = IN_POPUP_MODE ? 'Return to main window' : 'Pop-out';
+    if (IN_POPUP_MODE) {
+      const queryPreset = new URLSearchParams(window.location.search).get('preset');
+      if (queryPreset && getWindowPreset(queryPreset)) {
+        selWindow.value = queryPreset;
+        applyPresetCellSize(getWindowPreset(queryPreset));
+      }
+      else selWindow.value = 'regular';
+    } else {
+      selWindow.value = 'regular';
+    }
     resize();
     restoreFromPopoutState();
+    tryRestoreFromUrlState();
+    if (urlSyncEnabled) syncStateToUrl();
   </script>
 
 </body>
