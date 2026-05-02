@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- LTeX: enabled=false -->
 <html lang="en">
 
 <head>
@@ -20,9 +21,16 @@
        allows the user to click cells to toggle them alive/dead before starting the simulation.
   -->
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    html, body {
+    html,
+    body {
       height: 100%;
       background: #0d0d0d;
       color: #c8f0c8;
@@ -58,7 +66,7 @@
       padding-bottom: 10px;
     }
 
-    #sidebar > label {
+    #sidebar>label {
       font-size: 12px;
       color: #8aab8a;
       text-transform: uppercase;
@@ -74,7 +82,9 @@
       padding: 4px 6px;
     }
 
-    #sidebar select:focus { outline: 1px solid #39ff14; }
+    #sidebar select:focus {
+      outline: 1px solid #39ff14;
+    }
 
     /* ── Media controls ── */
     #controls {
@@ -95,8 +105,13 @@
       transition: background 0.15s;
     }
 
-    #controls button:hover  { background: #2a4a2a; }
-    #controls button:active { background: #3a5a3a; }
+    #controls button:hover {
+      background: #2a4a2a;
+    }
+
+    #controls button:active {
+      background: #3a5a3a;
+    }
 
     #controls button.active {
       background: #2a5a2a;
@@ -161,8 +176,15 @@
       font-size: 13px;
     }
 
-    .check-group input[type="checkbox"] { accent-color: #39ff14; }
-    .check-group label { color: #c8f0c8; text-transform: none; letter-spacing: 0; }
+    .check-group input[type="checkbox"] {
+      accent-color: #39ff14;
+    }
+
+    .check-group label {
+      color: #c8f0c8;
+      text-transform: none;
+      letter-spacing: 0;
+    }
 
     #window-mode {
       width: 100%;
@@ -173,7 +195,9 @@
       padding: 4px 6px;
     }
 
-    #window-mode:focus { outline: 1px solid #39ff14; }
+    #window-mode:focus {
+      outline: 1px solid #39ff14;
+    }
 
     /* ── Status box ── */
     #status-box {
@@ -197,7 +221,9 @@
     }
 
     /* ── Canvas area ── */
-    #game-canvas.custom-mode { cursor: crosshair; }
+    #game-canvas.custom-mode {
+      cursor: crosshair;
+    }
 
     #canvas-area {
       flex: 1;
@@ -213,7 +239,9 @@
 
     /* ── Responsive: stack vertically on narrow screens ── */
     @media (max-width: 600px) {
-      body { flex-direction: column; }
+      body {
+        flex-direction: column;
+      }
 
       #sidebar {
         width: 100%;
@@ -235,7 +263,10 @@
         padding-bottom: 6px;
       }
 
-      #canvas-area { flex: 1; min-height: 0; }
+      #canvas-area {
+        flex: 1;
+        min-height: 0;
+      }
     }
   </style>
 </head>
@@ -244,29 +275,18 @@
 
   <nav id="sidebar">
     <h1>Game of Life</h1>
-    <p><a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank" rel="noopener noreferrer">Conway's Game of Life</a></p>
+    <p><a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank"
+        rel="noopener noreferrer">Conway's Game of Life</a></p>
 
     <label for="pattern">Pattern</label>
     <select id="pattern">
-      <option value="random">Random</option>
-      <option value="custom">Custom</option>
-      <option value="simple-complexity">Simple Complexity</option>
-      <option value="glider">Glider</option>
-      <option value="blinker">Blinker</option>
-      <option value="toad">Toad</option>
-      <option value="beacon">Beacon</option>
-      <option value="clock">Clock (Stable)</option>
-      <option value="pentadecathlon">Pentadecathlon (P15)</option>
-      <option value="pulsar">Pulsar</option>
-      <option value="gosper">Gosper Glider Gun</option>
-      <option value="rpentomino">R-Pentomino</option>
-      <option value="acorn">Acorn</option>
+      <!-- options populated from PATTERN_DEFS in script -->
     </select>
 
     <div id="controls">
-      <button id="btn-play"  title="Play">&#9654;</button>
+      <button id="btn-play" title="Play">&#9654;</button>
       <button id="btn-pause" title="Pause">&#9646;&#9646;</button>
-      <button id="btn-step"  title="Step Forward">&#9197;</button>
+      <button id="btn-step" title="Step Forward">&#9197;</button>
       <button id="btn-reset" title="Reset to selected pattern">&#9632;</button>
       <button id="btn-edit" title="Edit">Edit</button>
     </div>
@@ -349,26 +369,26 @@
     const IN_POPUP_MODE = new URLSearchParams(window.location.search).get('popup') === '1';
 
     // ── DOM refs ───────────────────────────────────────────────────
-    const canvas     = document.getElementById('game-canvas');
-    const ctx        = canvas.getContext('2d');
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
     const selPattern = document.getElementById('pattern');
-    const btnPlay    = document.getElementById('btn-play');
-    const btnPause   = document.getElementById('btn-pause');
-    const btnStep    = document.getElementById('btn-step');
-    const btnReset   = document.getElementById('btn-reset');
-    const btnEdit    = document.getElementById('btn-edit');
-    const selWindow  = document.getElementById('window-mode');
-    const elGen      = document.getElementById('gen-count');
-    const elPop      = document.getElementById('pop-count');
+    const btnPlay = document.getElementById('btn-play');
+    const btnPause = document.getElementById('btn-pause');
+    const btnStep = document.getElementById('btn-step');
+    const btnReset = document.getElementById('btn-reset');
+    const btnEdit = document.getElementById('btn-edit');
+    const selWindow = document.getElementById('window-mode');
+    const elGen = document.getElementById('gen-count');
+    const elPop = document.getElementById('pop-count');
     const elGridSize = document.getElementById('grid-size');
-    const elHover    = document.getElementById('hover-box');
-    const elStatus   = document.getElementById('status-box');
-    const sldSpeed   = document.getElementById('speed');
-    const valSpeed   = document.getElementById('speed-val');
-    const sldCell    = document.getElementById('cell-size');
-    const valCell    = document.getElementById('cell-size-val');
-    const chkWrap    = document.getElementById('wrap-toggle');
-    const chkDetect  = document.getElementById('detect-loops');
+    const elHover = document.getElementById('hover-box');
+    const elStatus = document.getElementById('status-box');
+    const sldSpeed = document.getElementById('speed');
+    const valSpeed = document.getElementById('speed-val');
+    const sldCell = document.getElementById('cell-size');
+    const valCell = document.getElementById('cell-size-val');
+    const chkWrap = document.getElementById('wrap-toggle');
+    const chkDetect = document.getElementById('detect-loops');
     const chkUrlSync = document.getElementById('url-sync');
     const canvasArea = document.getElementById('canvas-area');
 
@@ -376,24 +396,24 @@
     let cols = 0, rows = 0;
     let grid = [];          // 2-D: grid[row][col] = age (0 = dead, 1+ = alive N gens)
     let generation = 0;
-    let population  = 0;
-    let running    = false;
-    let animId     = null;
-    let lastTime   = 0;
-    let cellSize   = parseInt(sldCell.value, 10);
-    let fps        = parseInt(sldSpeed.value, 10);
-    let wrapEdges  = chkWrap.checked;
+    let population = 0;
+    let running = false;
+    let animId = null;
+    let lastTime = 0;
+    let cellSize = parseInt(sldCell.value, 10);
+    let fps = parseInt(sldSpeed.value, 10);
+    let wrapEdges = chkWrap.checked;
     let detectLoops = chkDetect.checked;
-    let customMode    = false;
+    let customMode = false;
     let customPainting = false;
     let customPaintVal = 0;
-    let loopHashes     = new Uint32Array(LOOP_TRACK_FRAMES);
-    let loopHashCount  = 0;
-    let loopHashWrite  = 0;
-    let rowBiasFlip    = false;
-    let colBiasFlip    = false;
+    let loopHashes = new Uint32Array(LOOP_TRACK_FRAMES);
+    let loopHashCount = 0;
+    let loopHashWrite = 0;
+    let rowBiasFlip = false;
+    let colBiasFlip = false;
     let urlSyncEnabled = false;
-    let urlSyncTimer   = null;
+    let urlSyncTimer = null;
     let runStartTimeMs = 0;
     let runStartGeneration = 0;
 
@@ -477,134 +497,189 @@
       return n;
     }
 
-    // ── Patterns ──────────────────────────────────────────────────
-    const PATTERNS = {
-      random() {
-        for (let r = 0; r < rows; r++)
-          for (let c = 0; c < cols; c++)
-            grid[r][c] = Math.random() < 0.3 ? 1 : 0;
+    // ── Pattern definitions ───────────────────────────────────────
+    // Each entry describes a named pattern declaratively.
+    // originOffset: [x, y] in grid cells — where the pattern's top-left
+    //   corner is placed relative to the grid center.
+    // wrapEdges / detectLoops: set the checkboxes when the pattern loads.
+    //   Use null to leave the checkbox unchanged.
+    // special: 'random' | 'custom' — skips cell placement logic.
+    const PATTERN_DEFS = [
+      {
+        key: 'random',
+        name: 'Random',
+        special: 'random',
+        wrapEdges: true,
+        detectLoops: true,
+        message: '',
+        originOffset: [0, 0],
+        cells: []
       },
-      'simple-complexity'() {
-        const Message = 'Recommended grid: 110 × 96 (recommended for this shifted setup).';
-        const ShiftX = -16;
-        const ShiftY = 0;
-        const oc = Math.floor(cols / 2) - 5 + ShiftX;
-        const or = Math.floor(rows / 2) - 1 - ShiftY;
-
-        // Matches canonical shared state: a tub above a glider seed.
-        [[4,-5],[3,-4],[5,-4],[4,-3]].forEach(([dc,dr]) => setCell(grid, oc + dc, or + dr, 1));
-        [[0,0],[1,0],[2,0],[2,1],[1,2]].forEach(([dc,dr]) => setCell(grid, oc + dc, or + dr, 1));
-        return Message;
+      {
+        key: 'custom',
+        name: 'Custom',
+        special: 'custom',
+        wrapEdges: null,
+        detectLoops: null,
+        message: '',
+        originOffset: [0, 0],
+        cells: []
       },
-      glider() {
-        const Message = 'Min size: 5 × 5 (minimum to travel freely).';
-        const oc = Math.floor(cols / 2) - 1, or = Math.floor(rows / 2) - 1;
-        [[1,0],[2,1],[0,2],[1,2],[2,2]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'simple-complexity',
+        name: 'Simple Complexity',
+        wrapEdges: false,
+        detectLoops: true,
+        message: 'Recommended grid: 110 × 60 (shifted setup).',
+        // ShiftX=-16 → cols/2 - 5 - 16 = cols/2 - 21; ShiftY=0 → rows/2 - 1
+        originOffset: [-21, -3],
+        cells: [[4, -5], [3, -4], [5, -4], [4, -3], [0, 0], [1, 0], [2, 0], [2, 1], [1, 2]]
       },
-      blinker() {
-        const Message = 'Min size: 3 × 3 (period-2 oscillator).';
-        const oc = Math.floor(cols / 2) - 1, or = Math.floor(rows / 2);
-        [[0,0],[1,0],[2,0]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'glider',
+        name: 'Glider',
+        wrapEdges: false,
+        detectLoops: true,
+        message: 'Glider, min size: 64 × 64 (minimum to travel freely).',
+        originOffset: [-10, -10],
+        cells: [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]]
       },
-      toad() {
-        const Message = 'Min size: 6 × 4 (period-2 oscillator).';
-        const oc = Math.floor(cols / 2) - 2, or = Math.floor(rows / 2) - 1;
-        [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'blinker',
+        name: 'Blinker',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'Blinker, period-2 oscillator).',
+        originOffset: [-1, 0],
+        cells: [[0, 0], [1, 0], [2, 0]]
       },
-      beacon() {
-        const Message = 'Min size: 4 × 4 (period-2 oscillator).';
-        const oc = Math.floor(cols / 2) - 2, or = Math.floor(rows / 2) - 2;
-        [[0,0],[1,0],[0,1],[3,2],[2,3],[3,3]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'toad',
+        name: 'Toad',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'Toad, period-2 oscillator.',
+        originOffset: [-2, -1],
+        cells: [[1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1]]
       },
-      clock() {
-        const Message = 'Min size: 4 × 4 (period-2 oscillator).';
-        const oc = Math.floor(cols / 2) - 2, or = Math.floor(rows / 2) - 2;
-        // Period-2 oscillator (clock)
-        [
-          [1,0],[2,0],
-          [0,1],[3,1],
-          [0,2],[3,2],
-          [1,3],[2,3]
-        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'beacon',
+        name: 'Beacon',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'Beacon, period-2 oscillator.',
+        originOffset: [-2, -2],
+        cells: [[0, 0], [1, 0], [0, 1], [3, 2], [2, 3], [3, 3]]
       },
-      pentadecathlon() {
-        const Message = 'Min size: 12 × 5 (period-15 oscillator).';
-        const oc = Math.floor(cols / 2) - 5, or = Math.floor(rows / 2) - 1;
-        // True period-15 pentadecathlon (12 cells)
-        [
-          [2,0],[7,0],
-          [0,1],[1,1],[3,1],[4,1],[5,1],[6,1],[8,1],[9,1],
-          [2,2],[7,2]
-        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'clock',
+        name: 'Clock (Stable)',
+        wrapEdges: false,
+        detectLoops: true,
+        message: 'Clock, period-2 oscillator.',
+        originOffset: [-2, -2],
+        cells: [[1, 0], [2, 0], [0, 1], [3, 1], [0, 2], [3, 2], [1, 3], [2, 3]]
       },
-      pulsar() {
-        const Message = 'Min size: 15 × 15 (period-3 oscillator).';
-        const oc = Math.floor(cols / 2) - 6, or = Math.floor(rows / 2) - 6;
-        [
-          [2,0],[3,0],[4,0],[8,0],[9,0],[10,0],
-          [0,2],[5,2],[7,2],[12,2],[0,3],[5,3],[7,3],[12,3],[0,4],[5,4],[7,4],[12,4],
-          [2,5],[3,5],[4,5],[8,5],[9,5],[10,5],
-          [2,7],[3,7],[4,7],[8,7],[9,7],[10,7],
-          [0,8],[5,8],[7,8],[12,8],[0,9],[5,9],[7,9],[12,9],[0,10],[5,10],[7,10],[12,10],
-          [2,12],[3,12],[4,12],[8,12],[9,12],[10,12]
-        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'pentadecathlon',
+        name: 'Pentadecathlon (P15)',
+        wrapEdges: false,
+        detectLoops: true,
+        message: 'Pentadecathlon, period-15 oscillator.',
+        originOffset: [-5, -1],
+        cells: [
+          [2, 0], [7, 0],
+          [0, 1], [1, 1], [3, 1], [4, 1], [5, 1], [6, 1], [8, 1], [9, 1],
+          [2, 2], [7, 2]
+        ]
       },
-      gosper() {
-        const Message = 'Min size: 55 × 20 (gliders need room before looping back).';
-        const oc = Math.max(1, Math.floor((cols - 38) / 2));
-        const or = Math.max(1, Math.floor((rows - 11) / 2));
-        [
-          [1,5],[2,5],[1,6],[2,6],
-          [11,5],[11,6],[11,7],[12,4],[12,8],[13,3],[13,9],[14,3],[14,9],[15,6],
-          [16,4],[16,8],[17,5],[17,6],[17,7],[18,6],
-          [21,3],[21,4],[21,5],[22,3],[22,4],[22,5],[23,2],[23,6],
-          [25,1],[25,2],[25,6],[25,7],
-          [35,3],[35,4],[36,3],[36,4]
-        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'pulsar',
+        name: 'Pulsar',
+        wrapEdges: false,
+        detectLoops: true,
+        message: 'Pulsar, period-3 oscillator.',
+        originOffset: [-6, -6],
+        cells: [
+          [2, 0], [3, 0], [4, 0], [8, 0], [9, 0], [10, 0],
+          [0, 2], [5, 2], [7, 2], [12, 2], [0, 3], [5, 3], [7, 3], [12, 3], [0, 4], [5, 4], [7, 4], [12, 4],
+          [2, 5], [3, 5], [4, 5], [8, 5], [9, 5], [10, 5],
+          [2, 7], [3, 7], [4, 7], [8, 7], [9, 7], [10, 7],
+          [0, 8], [5, 8], [7, 8], [12, 8], [0, 9], [5, 9], [7, 9], [12, 9], [0, 10], [5, 10], [7, 10], [12, 10],
+          [2, 12], [3, 12], [4, 12], [8, 12], [9, 12], [10, 12]
+        ]
       },
-      rpentomino() {
-        const Message = 'Min size: 67 × 67 (stabilizes at gen 1,103).';
-        // Methuselah: 5 cells, stabilises after 1,103 generations
-        const oc = Math.floor(cols / 2) - 1, or = Math.floor(rows / 2) - 1;
-        [[1,0],[2,0],[0,1],[1,1],[1,2]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'gosper',
+        name: 'Gosper Glider Gun',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'Gosper Glider Gun, min size: 64 × 32.',
+        // Centers the 38-wide × 11-tall pattern: originOffset = [-19, -6]
+        originOffset: [-19, -6],
+        cells: [
+          [1, 5], [2, 5], [1, 6], [2, 6],
+          [11, 5], [11, 6], [11, 7], [12, 4], [12, 8], [13, 3], [13, 9], [14, 3], [14, 9], [15, 6],
+          [16, 4], [16, 8], [17, 5], [17, 6], [17, 7], [18, 6],
+          [21, 3], [21, 4], [21, 5], [22, 3], [22, 4], [22, 5], [23, 2], [23, 6],
+          [25, 1], [25, 2], [25, 6], [25, 7],
+          [35, 3], [35, 4], [36, 3], [36, 4]
+        ]
       },
-      acorn() {
-        const Message = 'Min size: 200 × 200 (temporary; pending more testing).';
-        const ShiftX = 25;
-        const ShiftY = -10;
-        // Methuselah: 7 cells, stabilises after 5,206 generations
-        const oc = Math.floor(cols / 2) - 3 + ShiftX, or = Math.floor(rows / 2) - 1 - ShiftY;
-        [[1,0],[3,1],[0,2],[1,2],[4,2],[5,2],[6,2]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
-        return Message;
+      {
+        key: 'rpentomino',
+        name: 'R-Pentomino',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'R-Pentomino, min size: 67 × 67 (stabilizes at gen 1,103).',
+        originOffset: [-1, -1],
+        cells: [[1, 0], [2, 0], [0, 1], [1, 1], [1, 2]]
       },
-      custom() {
-        // Board is cleared by applyPattern(); user draws cells by clicking
-      }
-    };
+      {
+        key: 'acorn',
+        name: 'Acorn',
+        wrapEdges: false,
+        detectLoops: false,
+        message: 'Acorn, min size: 200 × 200 (temporary; pending more testing).',
+        // ShiftX=25, ShiftY=-10: oc = cols/2 - 3 + 25, or = rows/2 - 1 + 10
+        originOffset: [22, 9],
+        cells: [[1, 0], [3, 1], [0, 2], [1, 2], [4, 2], [5, 2], [6, 2]]
+      },
+    ];
 
     function applyPattern() {
       grid = makeGrid();
       generation = 0;
-      population  = 0;
+      population = 0;
       resetLoopHistory();
-      const fn = PATTERNS[selPattern.value];
-      const Message = fn ? fn() : '';
+
+      const def = PATTERN_DEFS.find(d => d.key === selPattern.value);
+
+      if (def) {
+        // Apply checkbox settings if defined by the pattern
+        if (typeof def.wrapEdges === 'boolean') {
+          wrapEdges = def.wrapEdges;
+          chkWrap.checked = wrapEdges;
+        }
+        if (typeof def.detectLoops === 'boolean') {
+          detectLoops = def.detectLoops;
+          chkDetect.checked = detectLoops;
+        }
+
+        if (def.special === 'random') {
+          for (let r = 0; r < rows; r++)
+            for (let c = 0; c < cols; c++)
+              grid[r][c] = Math.random() < 0.3 ? 1 : 0;
+        } else if (def.special !== 'custom') {
+          const oc = Math.floor(cols / 2) + def.originOffset[0];
+          const or = Math.floor(rows / 2) + def.originOffset[1];
+          def.cells.forEach(([dc, dr]) => setCell(grid, oc + dc, or + dr, 1));
+        }
+      }
+
       recountPop();
       updateStats();
-      if (typeof Message === 'string' && Message.length > 0) {
-        setStatus(Message);
-        return;
-      }
-      setStatus('');
+      setStatus(def?.message || '');
     }
 
     // ── Simulation step ───────────────────────────────────────────
@@ -616,8 +691,8 @@
           const alive = grid[r][c] > 0;
           const n = countNeighbors(grid, c, r);
           let age = 0;
-          if (alive)  age = (n === 2 || n === 3) ? Math.min(grid[r][c] + 1, MAX_AGE) : 0;
-          else        age = (n === 3) ? 1 : 0;
+          if (alive) age = (n === 2 || n === 3) ? Math.min(grid[r][c] + 1, MAX_AGE) : 0;
+          else age = (n === 3) ? 1 : 0;
           next[r][c] = age;
           if (age > 0) pop++;
         }
@@ -1143,7 +1218,7 @@
     function resize() {
       const w = canvasArea.clientWidth;
       const h = canvasArea.clientHeight;
-      canvas.width  = w;
+      canvas.width = w;
       canvas.height = h;
       const newCols = Math.floor(w / cellSize);
       const newRows = Math.floor(h / cellSize);
@@ -1263,8 +1338,8 @@
     function canvasCoords(e) {
       const rect = canvas.getBoundingClientRect();
       return {
-        c: Math.floor((e.clientX - rect.left) * (canvas.width  / rect.width)  / cellSize),
-        r: Math.floor((e.clientY - rect.top)  * (canvas.height / rect.height) / cellSize)
+        c: Math.floor((e.clientX - rect.left) * (canvas.width / rect.width) / cellSize),
+        r: Math.floor((e.clientY - rect.top) * (canvas.height / rect.height) / cellSize)
       };
     }
 
@@ -1297,9 +1372,9 @@
       recountPop(); updateStats(); draw();
     });
 
-    canvas.addEventListener('pointerup',     () => { customPainting = false; });
+    canvas.addEventListener('pointerup', () => { customPainting = false; });
     canvas.addEventListener('pointercancel', () => { customPainting = false; });
-    canvas.addEventListener('pointerleave',  () => { elHover.textContent = 'Hover: x -, y -'; });
+    canvas.addEventListener('pointerleave', () => { elHover.textContent = 'Hover: x -, y -'; });
 
     canvas.addEventListener('wheel', e => {
       if (running) return;
@@ -1315,6 +1390,14 @@
     new ResizeObserver(resize).observe(canvasArea);
 
     // ── Init ──────────────────────────────────────────────────────
+    // Populate pattern dropdown from PATTERN_DEFS
+    PATTERN_DEFS.forEach(def => {
+      const opt = document.createElement('option');
+      opt.value = def.key;
+      opt.textContent = def.name;
+      selPattern.appendChild(opt);
+    });
+
     if (IN_POPUP_MODE) {
       const queryPreset = new URLSearchParams(window.location.search).get('preset');
       if (queryPreset && getWindowPreset(queryPreset)) {
