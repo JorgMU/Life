@@ -6,7 +6,7 @@
 - Items labeled REMINDER must only be mentioned in chat — never executed.
 - Reminder message format: "Reminder: <task>. (I did not perform this task.)"
 - If a task is unclear, ask before acting.
-- Automatically stage newly created files unless the user explicitly says not to.
+- Automatically stage newly created and modified files unless the user explicitly says not to. (Commits always require explicit user approval.)
 
 ## Project Context
 
@@ -67,7 +67,7 @@ At the start of each session:
 |---|---|
 | Response style | Short and direct |
 | Commit policy | Explicit request only |
-| Auto-stage new files | Yes |
+| Auto-stage new and modified files | Yes |
 
 ## Key Files
 

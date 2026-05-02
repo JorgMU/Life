@@ -16,6 +16,8 @@
     6. Adjustable generation speed with a slider.
     7. Border mode toggle (wrap around vs. fixed edges).
     8. Responsive design to ensure it looks good on both desktop and mobile devices.
+    9. I would like an added mode in the drop-down called Custom that clears the board and
+       allows the user to click cells to toggle them alive/dead before starting the simulation.
   -->
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -162,7 +164,23 @@
     .check-group input[type="checkbox"] { accent-color: #39ff14; }
     .check-group label { color: #c8f0c8; text-transform: none; letter-spacing: 0; }
 
+    /* ── Status box ── */
+    #status-box {
+      margin-top: auto;
+      font-size: 12px;
+      color: #9cc2ff;
+      background: #111a2b;
+      border: 1px solid #27456f;
+      border-radius: 4px;
+      min-height: 44px;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+    }
+
     /* ── Canvas area ── */
+    #game-canvas.custom-mode { cursor: crosshair; }
+
     #canvas-area {
       flex: 1;
       overflow: hidden;
@@ -212,10 +230,13 @@
     <label for="pattern">Pattern</label>
     <select id="pattern">
       <option value="random">Random</option>
+      <option value="custom">Custom</option>
       <option value="glider">Glider</option>
       <option value="blinker">Blinker</option>
       <option value="toad">Toad</option>
       <option value="beacon">Beacon</option>
+      <option value="clock">Clock (P2)</option>
+      <option value="pentadecathlon">Pentadecathlon (P15)</option>
       <option value="pulsar">Pulsar</option>
       <option value="gosper">Gosper Glider Gun</option>
     </select>
@@ -225,6 +246,7 @@
       <button id="btn-pause" title="Pause">&#9646;&#9646;</button>
       <button id="btn-step"  title="Step Forward">&#9197;</button>
       <button id="btn-reset" title="Reset">&#9632;</button>
+      <button id="btn-edit" title="Edit">Edit</button>
     </div>
 
     <div id="stats">
@@ -252,6 +274,8 @@
       <input type="checkbox" id="wrap-toggle" checked />
       <label for="wrap-toggle">Wrap edges</label>
     </div>
+
+    <div id="status-box" aria-live="polite"></div>
   </nav>
 
   <main id="canvas-area">
@@ -261,6 +285,7 @@
   <script>
     // ── Constants ──────────────────────────────────────────────────
     const MAX_AGE = 40;
+    const LOOP_TRACK_FRAMES = 36;
 
     // ── DOM refs ───────────────────────────────────────────────────
     const canvas     = document.getElementById('game-canvas');
@@ -270,8 +295,10 @@
     const btnPause   = document.getElementById('btn-pause');
     const btnStep    = document.getElementById('btn-step');
     const btnReset   = document.getElementById('btn-reset');
+    const btnEdit    = document.getElementById('btn-edit');
     const elGen      = document.getElementById('gen-count');
     const elPop      = document.getElementById('pop-count');
+    const elStatus   = document.getElementById('status-box');
     const sldSpeed   = document.getElementById('speed');
     const valSpeed   = document.getElementById('speed-val');
     const sldCell    = document.getElementById('cell-size');
@@ -290,6 +317,12 @@
     let cellSize   = parseInt(sldCell.value, 10);
     let fps        = parseInt(sldSpeed.value, 10);
     let wrapEdges  = chkWrap.checked;
+    let customMode    = false;
+    let customPainting = false;
+    let customPaintVal = 0;
+    let loopHashes     = new Uint32Array(LOOP_TRACK_FRAMES);
+    let loopHashCount  = 0;
+    let loopHashWrite  = 0;
 
     // ── Color table (pre-computed) ─────────────────────────────────
     // Age 1 (new) → bright green; Age MAX_AGE (old) → dim green
@@ -351,6 +384,25 @@
         const oc = Math.floor(cols / 2) - 2, or = Math.floor(rows / 2) - 2;
         [[0,0],[1,0],[0,1],[3,2],[2,3],[3,3]].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
       },
+      clock() {
+        const oc = Math.floor(cols / 2) - 2, or = Math.floor(rows / 2) - 2;
+        // Period-2 oscillator (clock)
+        [
+          [1,0],[2,0],
+          [0,1],[3,1],
+          [0,2],[3,2],
+          [1,3],[2,3]
+        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
+      },
+      pentadecathlon() {
+        const oc = Math.floor(cols / 2) - 5, or = Math.floor(rows / 2) - 1;
+        // True period-15 pentadecathlon (12 cells)
+        [
+          [2,0],[7,0],
+          [0,1],[1,1],[3,1],[4,1],[5,1],[6,1],[8,1],[9,1],
+          [2,2],[7,2]
+        ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
+      },
       pulsar() {
         const oc = Math.floor(cols / 2) - 6, or = Math.floor(rows / 2) - 6;
         [
@@ -373,6 +425,9 @@
           [25,1],[25,2],[25,6],[25,7],
           [35,3],[35,4],[36,3],[36,4]
         ].forEach(([dc,dr]) => setCell(grid, oc+dc, or+dr, 1));
+      },
+      custom() {
+        // Board is cleared by applyPattern(); user draws cells by clicking
       }
     };
 
@@ -380,6 +435,7 @@
       grid = makeGrid();
       generation = 0;
       population  = 0;
+      resetLoopHistory();
       const fn = PATTERNS[selPattern.value];
       if (fn) fn();
       recountPop();
@@ -408,13 +464,14 @@
 
     // ── Render ────────────────────────────────────────────────────
     function draw() {
-      ctx.fillStyle = '#0d0d0d';
+      // Blue grid lines: fill canvas blue, then paint each cell (cellSize-1 sq)
+      // so the 1px gaps between cells show as blue lines.
+      ctx.fillStyle = '#0d2a4a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const age = grid[r][c];
-          if (age === 0) continue;
-          ctx.fillStyle = colorTable[age] ?? colorTable[MAX_AGE];
+          ctx.fillStyle = age > 0 ? (colorTable[age] ?? colorTable[MAX_AGE]) : '#0d0d0d';
           ctx.fillRect(c * cellSize, r * cellSize, cellSize - 1, cellSize - 1);
         }
       }
@@ -433,20 +490,79 @@
       elPop.textContent = population;
     }
 
+    function setStatus(text = '') {
+      elStatus.textContent = text;
+    }
+
+    // ── Grid hashing (fast 32-bit FNV-1a over all cells) ──────────
+    function hashGrid(g) {
+      let h = 0x811c9dc5;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          h ^= (g[r][c] > 0 ? 1 : 0);
+          h = (Math.imul(h, 0x01000193) >>> 0);
+        }
+      }
+      return h;
+    }
+
+    function resetLoopHistory() {
+      loopHashCount = 0;
+      loopHashWrite = 0;
+    }
+
+    function pushLoopHash(hash) {
+      loopHashes[loopHashWrite] = hash;
+      loopHashWrite = (loopHashWrite + 1) % LOOP_TRACK_FRAMES;
+      if (loopHashCount < LOOP_TRACK_FRAMES) loopHashCount++;
+    }
+
+    function findLoopPeriod(hash) {
+      for (let offset = 1; offset <= loopHashCount; offset++) {
+        const idx = (loopHashWrite - offset + LOOP_TRACK_FRAMES) % LOOP_TRACK_FRAMES;
+        if (loopHashes[idx] === hash) return offset;
+      }
+      return 0;
+    }
+
     // ── Animation loop ────────────────────────────────────────────
     function loop(ts) {
       if (!running) return;
       animId = requestAnimationFrame(loop);
       if (ts - lastTime >= 1000 / fps) {
         lastTime = ts;
+
         step();
         draw();
         updateStats();
+
+        const h = hashGrid(grid);
+        const period = findLoopPeriod(h);
+
+        if (period === 1) {
+          console.log(`[Life] Steady state at gen ${generation}. Auto-pausing.`);
+          setStatus('Loop detected, paused. (steady state)');
+          pause();
+          return;
+        }
+
+        if (period > 1) {
+          console.log(`[Life] Period-${period} loop at gen ${generation}. Auto-pausing.`);
+          setStatus(`Loop detected, paused. (period-${period})`);
+          pause();
+          return;
+        }
+
+        pushLoopHash(h);
       }
     }
 
     function play() {
       if (running) return;
+      // Start detection history from the current board state.
+      resetLoopHistory();
+      pushLoopHash(hashGrid(grid));
+      setStatus('');
       running = true;
       lastTime = 0;
       btnPlay.classList.add('active');
@@ -459,6 +575,15 @@
       if (animId) { cancelAnimationFrame(animId); animId = null; }
       btnPause.classList.add('active');
       btnPlay.classList.remove('active');
+    }
+
+    function enterEditMode() {
+      pause();
+      customPainting = false;
+      customMode = true;
+      selPattern.value = 'custom';
+      canvas.classList.add('custom-mode');
+      draw();
     }
 
     // ── Resize ────────────────────────────────────────────────────
@@ -494,8 +619,14 @@
       draw();
     });
 
+    btnEdit.addEventListener('click', () => {
+      enterEditMode();
+    });
+
     selPattern.addEventListener('change', () => {
       pause();
+      customMode = selPattern.value === 'custom';
+      canvas.classList.toggle('custom-mode', customMode);
       applyPattern();
       draw();
     });
@@ -513,6 +644,38 @@
     });
 
     chkWrap.addEventListener('change', () => { wrapEdges = chkWrap.checked; });
+
+    // ── Custom draw mode ──────────────────────────────────────────
+    function canvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        c: Math.floor((e.clientX - rect.left) * (canvas.width  / rect.width)  / cellSize),
+        r: Math.floor((e.clientY - rect.top)  * (canvas.height / rect.height) / cellSize)
+      };
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      if (!customMode || running) return;
+      const { c, r } = canvasCoords(e);
+      if (c < 0 || c >= cols || r < 0 || r >= rows) return;
+      customPaintVal = grid[r][c] > 0 ? 0 : 1;
+      grid[r][c] = customPaintVal;
+      customPainting = true;
+      canvas.setPointerCapture(e.pointerId);
+      recountPop(); updateStats(); draw();
+    });
+
+    canvas.addEventListener('pointermove', e => {
+      if (!customMode || !customPainting) return;
+      const { c, r } = canvasCoords(e);
+      if (c < 0 || c >= cols || r < 0 || r >= rows) return;
+      if (grid[r][c] === customPaintVal) return;
+      grid[r][c] = customPaintVal;
+      recountPop(); updateStats(); draw();
+    });
+
+    canvas.addEventListener('pointerup',     () => { customPainting = false; });
+    canvas.addEventListener('pointercancel', () => { customPainting = false; });
 
     new ResizeObserver(resize).observe(canvasArea);
 
