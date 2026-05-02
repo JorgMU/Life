@@ -424,7 +424,9 @@
       const t = (a - 1) / (MAX_AGE - 1);           // 0 = new, 1 = old
       const l = Math.round(72 - t * 47);            // lightness 72% → 25%
       const s = Math.round(100 - t * 35);           // saturation 100% → 65%
-      colorTable.push(`hsl(145,${s}%,${l}%)`);
+      // colorTable.push(`hsl(145,${s}%,${l}%)`);
+      // Instead of fixed green (145), rotate the hue based on age
+      colorTable.push(`hsl(${(a * 10) + 280}, 100%, 50%)`);
     }
 
     // ── Grid helpers ───────────────────────────────────────────────
@@ -640,7 +642,7 @@
         name: 'Acorn',
         wrapEdges: false,
         detectLoops: true,
-        message: 'Acorn, min size: 188 × 228.',
+        message: 'Acorn, min size: 176 × 228.',
         // ShiftX=25, ShiftY=-10: oc = cols/2 - 3 + 25, or = rows/2 - 1 + 10
         originOffset: [36, 20],
         cells: [[1, 0], [3, 1], [0, 2], [1, 2], [4, 2], [5, 2], [6, 2]]
@@ -650,7 +652,7 @@
         name: 'Acorn Wide',
         wrapEdges: false,
         detectLoops: true,
-        message: 'Acorn Wide, min size: 228 × 188.',
+        message: 'Acorn Wide, min size: 228 × 176.',
         // Acorn rotated 90° clockwise.
         originOffset: [20, -36],
         cells: [[0, 5], [1, 3], [2, 6], [2, 5], [2, 2], [2, 1], [2, 0]]
